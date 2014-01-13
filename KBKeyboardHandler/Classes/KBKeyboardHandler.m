@@ -76,6 +76,8 @@
 
 - (void)notifySizeChanged:(CGSize)delta notification:(NSNotification *)notification
 {
+    assert(self.delegate);
+
     NSDictionary *info = [notification userInfo];
     
     UIViewAnimationCurve curve;
@@ -84,15 +86,15 @@
     NSTimeInterval duration;
     [[info objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:&duration];
     
-    void (^action)(void) = ^{
-        [self.delegate keyboardSizeChanged:delta];
-    };
-    
-    [UIView animateWithDuration:duration
-                          delay:0.0
-                        options:curve
-                     animations:action
-                     completion:nil];    
+
+    [UIView beginAnimations:nil context:NULL];
+    [UIView setAnimationDuration:[notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue]];
+    [UIView setAnimationCurve:[notification.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue]];
+    [UIView setAnimationBeginsFromCurrentState:YES];
+
+    [self.delegate keyboardSizeChanged:delta];
+
+    [UIView commitAnimations];
 }
 
 @end
