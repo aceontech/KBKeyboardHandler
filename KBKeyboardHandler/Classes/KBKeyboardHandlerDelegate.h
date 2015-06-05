@@ -9,6 +9,7 @@
 
 @protocol KBKeyboardHandlerDelegate <NSObject>
 
-- (void)keyboardSizeChanged:(CGSize)delta;
+- (void)keyboardSizeWillChange:(CGSize)delta;
+- (void)keyboardSizeDidChange:(CGSize)delta;
 
 @end

@@ -10,6 +10,18 @@
 #import "KBKeyboardHandler.h"
 #import "KBKeyboardHandlerDelegate.h"
 
+typedef NS_ENUM(NSInteger, KBKeyboardEventType) {
+    KBKeyboardEventTypeWill,
+    KBKeyboardEventTypeDid
+};
+
+@interface KBKeyboardHandler() {
+    KBKeyboardEventType eventType;
+    CGSize oldDelta;
+}
+
+@end
+
 @implementation KBKeyboardHandler
 
 - (id)init
@@ -17,6 +29,17 @@
     self = [super init];
     if (self)
     {
+        // Register for the "didShow" events
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(keyboardDidShow:)
+                                                     name:UIKeyboardDidShowNotification
+                                                   object:nil];
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(keyboardDidHide:)
+                                                     name:UIKeyboardDidHideNotification
+                                                   object:nil];
+        
+        // Register for the "willShow" events
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(keyboardWillShow:)
                                                      name:UIKeyboardWillShowNotification
@@ -41,6 +64,7 @@
 
 - (void)keyboardWillShow:(NSNotification *)notification
 {
+    eventType = KBKeyboardEventTypeWill;
     CGRect oldFrame = self.frame;
     [self retrieveFrameFromNotification:notification];
     
@@ -48,23 +72,44 @@
     {
         CGSize delta = CGSizeMake(self.frame.size.width - oldFrame.size.width,
                                   self.frame.size.height - oldFrame.size.height);
-        if (self.delegate)
+        if (self.delegate) {
+            oldDelta = delta;
             [self notifySizeChanged:delta notification:notification];
+        }
     }
 }
 
 - (void)keyboardWillHide:(NSNotification *)notification
 {
+    eventType = KBKeyboardEventTypeWill;
     if (self.frame.size.height > 0.0)
     {
         [self retrieveFrameFromNotification:notification];
         CGSize delta = CGSizeMake(-self.frame.size.width, -self.frame.size.height);
         
-        if (self.delegate)
+        if (self.delegate) {
+            oldDelta = delta;
             [self notifySizeChanged:delta notification:notification];
+        }
     }
     
     self.frame = CGRectZero;
+}
+
+- (void)keyboardDidShow:(NSNotification*)notification {
+    eventType = KBKeyboardEventTypeDid;
+    
+    if (self.delegate) {
+        [self notifySizeChanged:oldDelta notification:notification];
+    }
+}
+
+- (void)keyboardDidHide:(NSNotification*)notification {
+    eventType = KBKeyboardEventTypeDid;
+    
+    if (self.delegate) {
+        [self notifySizeChanged:oldDelta notification:notification];
+    }
 }
 
 - (void)retrieveFrameFromNotification:(NSNotification *)notification
@@ -77,7 +122,7 @@
 - (void)notifySizeChanged:(CGSize)delta notification:(NSNotification *)notification
 {
     assert(self.delegate);
-
+    
     NSDictionary *info = [notification userInfo];
     
     UIViewAnimationCurve curve;
@@ -86,14 +131,19 @@
     NSTimeInterval duration;
     [[info objectForKey:UIKeyboardAnimationDurationUserInfoKey] getValue:&duration];
     
-
+    
     [UIView beginAnimations:nil context:NULL];
     [UIView setAnimationDuration:[notification.userInfo[UIKeyboardAnimationDurationUserInfoKey] doubleValue]];
     [UIView setAnimationCurve:[notification.userInfo[UIKeyboardAnimationCurveUserInfoKey] integerValue]];
     [UIView setAnimationBeginsFromCurrentState:YES];
-
-    [self.delegate keyboardSizeChanged:delta];
-
+    
+    if (eventType == KBKeyboardEventTypeWill) {
+        [self.delegate keyboardSizeWillChange:delta];
+    }
+    else if (eventType == KBKeyboardEventTypeDid) {
+        [self.delegate keyboardSizeDidChange:delta];
+    }
+    
     [UIView commitAnimations];
 }
 
